@@ -5,9 +5,9 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Next GPT-4V',
+  title: 'Sarvah - Q E S T',
   description:
-    'A simple chat app with vision using Next.js, Vercel AI SDK, and GPT-4V.',
+    'AI expert for Artefacts',
 }
 
 export default function RootLayout({

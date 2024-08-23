@@ -5,15 +5,19 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "PORT=3001 next start",
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/axios": "^0.14.0",
     "ai": "^2.2.24",
-    "next": "14.0.3",
+    "axios": "^1.7.2",
+    "next": "^14.2.3",
+    "node-fetch": "^3.3.2",
     "openai": "^4.19.0",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "sharp": "^0.33.4"
   },
   "devDependencies": {
     "@types/node": "^20",
