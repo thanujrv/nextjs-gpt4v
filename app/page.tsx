@@ -17,10 +17,34 @@ export default function Chat() {
   })
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [base64Images, setBase64Images] = useState<string[]>([])
+  const [hasTypedFirstMessage, setHasTypedFirstMessage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleImageClick = (imageUrl: string) => {
+    const searchParams = new URLSearchParams();
+    searchParams.append('image', imageUrl);
+    window.open(`/similarity-search?${searchParams.toString()}`, '_blank', 'noopener,noreferrer');
+  };
 
   const handleFileButtonClick = () => {
     fileInputRef.current?.click()
+  }
+
+  const handleInputWithPlaceholder = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange(e)
+    if (!hasTypedFirstMessage && e.target.value.length > 0) {
+      setHasTypedFirstMessage(true)
+    }
+  }
+
+  const getPlaceholderText = () => {
+    if (hasTypedFirstMessage) {
+      return "" // No placeholder after first message
+    }
+    if (imageUrls.length > 0) {
+      return "Classify this artefact" // Show when image is uploaded
+    }
+    return "Start by uploading an artifact image .."
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,22 +93,26 @@ export default function Chat() {
         {imageUrls.map((imageUrl, index) => (
           <Fragment key={index}>
             <div className="mb-4">
-              <Image
-                src={imageUrl}
-                alt="File preview"
-                width={700}
-                height={300}
-                className="rounded-lg object-cover"
-              />
-              <button
-                type="button"
-                onClick={() => handleRemoveFile(index)}
-                className="mt-2 text-xs text-gray-400 hover:text-white"
-              >
-                Delete
-              </button>
+              <div className="relative">
+                <Image
+                  src={imageUrl}
+                  alt="File preview"
+                  width={700}
+                  height={300}
+                  className="rounded-lg object-cover"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-2 rounded-b-lg">
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFile(index)}
+                    className="text-xs text-gray-200 hover:text-white transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
               <div className="mt-2 text-sm text-gray-400">
-                If you like to analyze this artefact, start by typing in - Classify this artefact - in the text box below or you can type your own question and press return.
+                Start by typing in - Classify this artifact - or any other question in the text box below and press return.
               </div>
             </div>
           </Fragment>
@@ -119,7 +147,7 @@ export default function Chat() {
       
       <nav className="absolute top-0 right-0 p-4"> 
         <Link className="text-white-500 hover:text-blue-400 transition-colors" href="http://localhost:3000/">
-          Discover
+          Contribute
         </Link>
       </nav>
 
@@ -144,13 +172,24 @@ export default function Chat() {
             {m.role === 'assistant' && index === 1 && imageUrls.length > 0 && (
               <div className="mt-6 grid grid-cols-2 gap-4">
                 {imageUrls.map((url, imgIndex) => (
-                  <div key={imgIndex} className="relative aspect-video">
-                    <Image
-                      src={url}
-                      alt={`Analyzed image ${imgIndex + 1}`}
-                      fill
-                      className="rounded-lg object-cover"
-                    />
+                  <div 
+                    key={imgIndex} 
+                    className="relative aspect-video group cursor-pointer"
+                    onClick={() => handleImageClick(url)}
+                  >
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={url}
+                        alt={`Analyzed image ${imgIndex + 1}`}
+                        fill
+                        className="rounded-lg object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <span className="text-white text-sm font-medium px-4 py-2 bg-black bg-opacity-50 rounded-lg">
+                          Click to find similar images
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -199,8 +238,8 @@ export default function Chat() {
               <input
                 className="w-full rounded-lg border border-gray-700 bg-gray-900 p-2 text-sm placeholder:text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 value={input}
-                placeholder="Start by uploading an artifact image and ask your question"
-                onChange={handleInputChange}
+                placeholder={getPlaceholderText()}
+                onChange={handleInputWithPlaceholder}
               />
             </form>
           </div>
