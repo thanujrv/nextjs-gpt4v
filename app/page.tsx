@@ -142,7 +142,7 @@ export default function Chat() {
           width={50}
           height={50}
         />
-        <h1 className="text-2xl font-bold">Sarvah</h1>
+        {/* <h1 className="text-2xl font-bold">Sarvah</h1> */}
       </header>
       
       <nav className="absolute top-0 right-0 p-4"> 
@@ -203,8 +203,8 @@ export default function Chat() {
         <div className="mx-auto max-w-4xl px-4 py-8">
           {shouldCenterChat && (
             <div className="text-center mb-8">
-              <h2 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent animate-fade-in">
-                Sarvah Quest
+              <h2 className="text-4xl font-bold tracking-tight bg-gradient-to-br from-[#FFD700] via-[#FDB931] to-[#E1AD21] bg-clip-text text-transparent animate-fade-in drop-shadow-sm">
+                 Sarvah Quest
               </h2>
               <p className="mt-2 text-gray-400">Explore and analyze artifacts with AI</p>
             </div>
