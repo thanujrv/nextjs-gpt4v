@@ -2,7 +2,8 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Fragment, useRef, useState, useEffect } from 'react'
+import { Fragment, useRef, useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useChat } from 'ai/react'
 
 function Spinner() {
@@ -12,9 +13,24 @@ function Spinner() {
 }
 
 export default function Chat() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 text-white p-8 flex items-center justify-center">
+        <div className="spinner inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-e-transparent align-[-0.125em]">
+          <span className="sr-only">Loading...</span>
+        </div>
+      </div>
+    }>
+      <ChatContent />
+    </Suspense>
+  )
+}
+
+function ChatContent() {
   const { messages, input, handleInputChange, handleSubmit, isLoading, append } = useChat({
     api: '/api/chat-with-vision',
   })
+  const searchParams = useSearchParams()
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [base64Images, setBase64Images] = useState<string[]>([])
   const [hasTypedFirstMessage, setHasTypedFirstMessage] = useState(false)
@@ -188,6 +204,73 @@ export default function Chat() {
     }
   }, [])
 
+  // Handle URL parameters for image loading
+  useEffect(() => {
+    const imageUrl = searchParams.get('image')
+    if (imageUrl) {
+      // Check if this image is already loaded
+      setImageUrls(prev => {
+        if (prev.includes(imageUrl)) {
+          return prev // Image already loaded
+        }
+        
+        // Add the image to the existing images
+        const newImageUrls = [...prev, imageUrl]
+        
+        // Convert to base64 for the API
+        fetch(imageUrl)
+          .then(response => response.blob())
+          .then(blob => {
+            return new Promise<string>((resolve, reject) => {
+              const reader = new FileReader()
+              reader.onload = (e: ProgressEvent<FileReader>) => {
+                if (e.target && e.target.result) {
+                  resolve(e.target.result as string)
+                }
+              }
+              reader.onerror = reject
+              reader.readAsDataURL(blob)
+            })
+          })
+          .then(base64Image => {
+            setBase64Images(prev => {
+              // Check if this base64 image is already loaded
+              if (prev.some(img => img === base64Image)) {
+                return prev
+              }
+              return [...prev, base64Image]
+            })
+          })
+          .catch(error => {
+            console.error('Error loading image from URL:', error)
+          })
+        
+        return newImageUrls
+      })
+    }
+  }, [searchParams])
+
+  // Helper function to ensure image is loaded before proceeding
+  const ensureImageLoaded = async (): Promise<boolean> => {
+    if (base64Images.length > 0) {
+      return true // Image already loaded
+    }
+    
+    if (imageUrls.length === 0) {
+      return false // No image to load
+    }
+    
+    // Wait for image to load (with timeout)
+    const maxWait = 5000 // 5 seconds
+    const startTime = Date.now()
+    
+    while (base64Images.length === 0 && (Date.now() - startTime) < maxWait) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    
+    return base64Images.length > 0
+  }
+
   // Artifact Spotlight Hero Section - Dynamic based on AI analysis
   const ArtifactSpotlight = ({ artifactData }: { artifactData?: any }) =>
     imageUrls.length > 0 ? (
@@ -230,10 +313,6 @@ export default function Chat() {
   // Handle specific view requests
   const handleViewRequest = async (viewType: 'museum' | 'local' | 'deep') => {
     console.log('handleViewRequest called with:', viewType)
-    if (imageUrls.length === 0) {
-      console.log('No images uploaded')
-      return
-    }
     
     const prompts = {
       museum: "Provide a formal, academic analysis of this artifact. Include: 1) What this artifact is and its cultural significance, 2) Historical period and context, 3) Technical details about materials and craftsmanship, 4) Current museum or scholarly understanding. Keep it professional and factual.",
@@ -244,35 +323,64 @@ export default function Chat() {
     const prompt = prompts[viewType]
     console.log('Using prompt:', prompt)
     
-    // Set the input value using the handleInputChange function
-    const inputElement = document.querySelector('textarea[placeholder*="Classify this artefact"]') as HTMLTextAreaElement
-    if (inputElement) {
-      console.log('Found input element, setting value')
-      // Create a synthetic input event
-      const syntheticInputEvent = {
-        target: { value: prompt }
-      } as React.ChangeEvent<HTMLInputElement>
+    // Use the append function directly - this is more reliable than DOM manipulation
+    try {
+      console.log('Using append function with images:', base64Images.length, 'imageUrls:', imageUrls.length)
       
-      // Update the input state
-      handleInputChange(syntheticInputEvent)
-      console.log('Called handleInputChange')
+      // Ensure image is loaded before proceeding
+      const imageLoaded = await ensureImageLoaded()
+      console.log('Image loaded:', imageLoaded, 'base64Images length:', base64Images.length)
       
-      // Wait a moment for state to update, then submit
-      setTimeout(() => {
-        console.log('Submitting form with images:', base64Images.length)
-        const syntheticFormEvent = {
-          preventDefault: () => {},
-        } as React.FormEvent<HTMLFormElement>
+      if (!imageLoaded && imageUrls.length > 0) {
+        console.error('Failed to load image after timeout')
+        return
+      }
+      
+      await append({
+        role: 'user',
+        content: prompt
+      }, {
+        data: {
+          base64Images: JSON.stringify(base64Images),
+          userProfile: JSON.stringify(userProfile),
+        },
+      })
+      console.log('Used append function successfully')
+    } catch (error) {
+      console.error('Error using append function:', error)
+      
+      // Fallback: try DOM manipulation approach
+      console.log('Falling back to DOM manipulation approach')
+      const inputElement = document.querySelector('textarea[data-testid="chat-input"]') as HTMLTextAreaElement
+      if (inputElement) {
+        console.log('Found input element, setting value')
+        // Create a synthetic input event
+        const syntheticInputEvent = {
+          target: { value: prompt }
+        } as React.ChangeEvent<HTMLInputElement>
         
-        handleSubmit(syntheticFormEvent, {
-          data: {
-            base64Images: JSON.stringify(base64Images),
-          },
-        })
-        console.log('Called handleSubmit')
-      }, 100)
-        } else {
-      console.log('Input element not found')
+        // Update the input state
+        handleInputChange(syntheticInputEvent)
+        console.log('Called handleInputChange')
+        
+        // Wait a moment for state to update, then submit
+        setTimeout(() => {
+          console.log('Submitting form with images:', base64Images.length)
+          const syntheticFormEvent = {
+            preventDefault: () => {},
+          } as React.FormEvent<HTMLFormElement>
+          
+          handleSubmit(syntheticFormEvent, {
+            data: {
+              base64Images: JSON.stringify(base64Images),
+              userProfile: JSON.stringify(userProfile),
+            },
+          })
+          console.log('Called handleSubmit')
+        }, 100)
+      } else {
+        console.log('Input element not found in fallback')
+      }
     }
   }
 
@@ -789,6 +897,7 @@ export default function Chat() {
                 📎
               </button>
               <textarea
+                data-testid="chat-input"
                 className="w-full rounded-lg border border-gray-700 bg-gray-900 p-3 text-sm placeholder:text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none min-h-[60px] max-h-[200px]"
                 value={input}
                 placeholder={getPlaceholderText()}
